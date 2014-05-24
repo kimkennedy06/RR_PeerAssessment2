@@ -1,0 +1,8 @@
+
+*.rdb
+
+*.rdx
+
+*.RData
+
+cache/__packages
