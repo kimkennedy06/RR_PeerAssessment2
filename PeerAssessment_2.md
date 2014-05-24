@@ -1,0 +1,49 @@
+Title: Briefly Summarizes data analysis
+========================================================
+
+Synopsis: At most 10 sentences.  
+
+## Data Retrieval
+Data
+
+```r
+# Download File and Save Date Downloaded
+NOAA.data.file <- download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", 
+    destfile = "StormData.csv.bz2", method = "curl")
+dateDownloaded <- date()
+
+# Unzip the bz2 archive
+open.connection <- bzfile("StormData.csv.bz2", "r")
+NOAA.data <- read.csv(open.connection)
+close(open.connection)
+unlink("StormData.csv.bz2")
+```
+
+## Data Processing
+-Removing un-necessary columns for data analysis questions
+
+```r
+# Subsetting the Data Frame to only include columns relevant for analysis
+keeps <- c("COUNTY", "COUNTYNAME", "STATE", "EVTYPE", "FATALITIES", "INJURIES", 
+    "PROPDMG", "PROPDMGEXP", "CROPDMG", "CROPDMGEXP")
+NOAA.data.keeps <- NOAA.data[, keeps]
+```
+
+-Focus on only data with damages to population or economic health
+
+```r
+NOAA.data.with.damages <- subset(NOAA.data.keeps, NOAA.data.keeps$FATALITIES > 
+    0 | NOAA.data.keeps$INJURIES > 0 | NOAA.data.keeps$PROPDMG > 0 | NOAA.data.keeps$CROPDMG > 
+    0)
+```
+
+
+## Results
+*No more than three figures
+*Must contain at least one figure with a plot
+
+## Questions that must be addressed
+1. Across the United States, which types of events (as indicated in the `EVTYPE` variable) are most harmful with respect to population health?
+1. Across the United States, which types of events have the greatest economic consequences?
+
+Consider writing your report as if it were to be read by a government or municipal manager who might be responsible for preparing for severe weather events and will need to prioritize resources for different types of events. However, there is no need to make any specific recommendations in your report.
