@@ -218,6 +218,63 @@ NOAA.data.keeps &lt;- NOAA.data[, keeps]
     0)
 </code></pre>
 
+<p>Since the data is collected since 1950 and not adjusted for inflation, I am going to go ahead add a column for adjusting damage costs later on. We need to account for inflation because $25,000 in 1950 would be equivalent to ~$233,000 in 2011.</p>
+
+<pre><code class="r">## Quantitative Financial Model package for inflation
+if (&quot;quantmod&quot; %in% rownames(installed.packages()) == FALSE) {
+    install.packages.(&quot;quantmod&quot;)
+}
+library(quantmod)
+
+# Easy date conversion package
+if (&quot;lubridate&quot; %in% rownames(installed.packages()) == FALSE) {
+    install.packages(&quot;lubridate&quot;)
+}
+library(lubridate)
+
+# Retrieve Inflation Table
+options(getSymbols.warning4.0 = FALSE)
+invisible(getSymbols(&quot;CPIAUCSL&quot;, src = &quot;FRED&quot;))
+# Avg Inflation yearly
+avg.cpi &lt;- apply.yearly(CPIAUCSL, mean)
+
+# Using 2011 as base year
+adjInflationPercent &lt;- as.numeric(avg.cpi[&quot;2011&quot;])/avg.cpi
+Inflation &lt;- as.data.frame(adjInflationPercent)
+
+# Add column based off row.names
+date &lt;- seq(ymd(&quot;1947-12-01&quot;), ymd(&quot;2014-12-01&quot;), by = &quot;years&quot;)
+Inflation$BaseMonth &lt;- date
+
+# Convert BGN_DATE to Date
+NOAA.data.with.damages$BGN_DATE &lt;- as.character(NOAA.data.with.damages$BGN_DATE)
+NOAA.data.with.damages$BGN_DATE &lt;- mdy_hms(NOAA.data.with.damages$BGN_DATE)
+# Add another column to define base month since inflation is only for first
+# day of month
+NOAA.data.with.damages$BaseMonth &lt;- paste(year(NOAA.data.with.damages$BGN_DATE), 
+    &quot;12&quot;, &quot;01&quot;, sep = &quot;-&quot;)
+NOAA.data.with.damages$BaseMonth &lt;- ymd(NOAA.data.with.damages$BaseMonth)
+# Merge on BaseMonth
+NOAA.data.with.damages &lt;- merge(NOAA.data.with.damages, Inflation, by = &quot;BaseMonth&quot;)
+head(NOAA.data.with.damages)
+</code></pre>
+
+<pre><code>##    BaseMonth   BGN_DATE COUNTYNAME STATE  EVTYPE FATALITIES INJURIES
+## 1 1950-12-01 1950-04-18     MOBILE    AL TORNADO          0       15
+## 2 1950-12-01 1950-04-18    BALDWIN    AL TORNADO          0        0
+## 3 1950-12-01 1950-06-25       RUSK    WI TORNADO          0        0
+## 4 1950-12-01 1950-06-25      PRICE    WI TORNADO          0        0
+## 5 1950-12-01 1950-06-25      CLARK    WI TORNADO          1        0
+## 6 1950-12-01 1950-06-25     ONEIDA    WI TORNADO          2       12
+##   PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP REMARKS CPIAUCSL
+## 1    25.0          K       0                       9.348
+## 2     2.5          K       0                       9.348
+## 3    25.0          K       0                       9.348
+## 4   250.0          K       0                       9.348
+## 5    25.0          K       0                       9.348
+## 6   250.0          K       0                       9.348
+</code></pre>
+
 <p>For the purpose of keeping formatting consistency, I am changing all <code>EVTYPE</code> to uppercase and removing all extra and un-necessary spaces.</p>
 
 <pre><code class="r"># Change all casing to upper
@@ -584,10 +641,14 @@ NOAA.data.categorized$CROPDMGEXPVAL &lt;- map_column[NOAA.data.categorized$CROPD
 <p>After adding the column for the exponential value, I calculated the cost for property and crop damages.</p>
 
 <pre><code class="r"># Add column for Property Damage Cost
-NOAA.data.categorized$PROPDMGCOST &lt;- NOAA.data.categorized$PROPDMG * NOAA.data.categorized$PROPDMGEXPVAL
+NOAA.data.categorized$PROPDMGCOST &lt;- ifelse(NOAA.data.categorized$PROPDMG == 
+    0, 0, NOAA.data.categorized$PROPDMG * NOAA.data.categorized$PROPDMGEXPVAL * 
+    NOAA.data.categorized$CPIAUCSL)
 
 # Add column for Crop Damage Cost
-NOAA.data.categorized$CROPDMGCOST &lt;- NOAA.data.categorized$CROPDMG * NOAA.data.categorized$CROPDMGEXPVAL
+NOAA.data.categorized$CROPDMGCOST &lt;- ifelse(NOAA.data.categorized$CROPDMG == 
+    0, 0, NOAA.data.categorized$CROPDMG * NOAA.data.categorized$CROPDMGEXPVAL * 
+    NOAA.data.categorized$CPIAUCSL)
 </code></pre>
 
 <p>After grouping all the data, I decided to build a overall summary of the total property and crop damages per group.</p>

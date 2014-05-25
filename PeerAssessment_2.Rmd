@@ -29,6 +29,47 @@ Next, I want to keep only data that show fatalities, injuries, property damage, 
 NOAA.data.with.damages <- subset(NOAA.data.keeps,
                                  NOAA.data.keeps$FATALITIES > 0 | NOAA.data.keeps$INJURIES > 0 | NOAA.data.keeps$PROPDMG > 0 | NOAA.data.keeps$CROPDMG >0) 
 ```
+Since the data is collected since 1950 and not adjusted for inflation, I am going to go ahead add a column for adjusting damage costs later on. We need to account for inflation because $25,000 in 1950 would be equivalent to ~$233,000 in 2011.
+```{r Inflation.Info,cache=TRUE}
+##Quantitative Financial Model package for inflation
+if ("quantmod" %in% rownames(installed.packages()) == FALSE){
+  install.packages.("quantmod")
+}
+library(quantmod)
+
+#Easy date conversion package
+if ("lubridate" %in% rownames(installed.packages()) == FALSE){
+  install.packages("lubridate")
+}
+library(lubridate)
+
+#Retrieve Inflation Table
+options("getSymbols.warning4.0"=FALSE)
+invisible(getSymbols("CPIAUCSL", src='FRED'))
+#Avg Inflation yearly
+avg.cpi<-apply.yearly(CPIAUCSL,mean)
+
+#Using 2011 as base year
+adjInflationPercent <- as.numeric(avg.cpi['2011'])/avg.cpi
+Inflation <-as.data.frame(adjInflationPercent)
+
+#Add column based off row.names
+date<-seq(ymd("1947-12-01"), ymd("2014-12-01"), by="years")
+Inflation$BaseMonth <- date
+
+#Convert BGN_DATE to Date 
+NOAA.data.with.damages$BGN_DATE<-as.character(NOAA.data.with.damages$BGN_DATE)
+NOAA.data.with.damages$BGN_DATE<-mdy_hms(NOAA.data.with.damages$BGN_DATE)
+#Add another column to define base month since inflation is only for first day of month
+NOAA.data.with.damages$BaseMonth<-paste(year(NOAA.data.with.damages$BGN_DATE),
+                                        "12",
+                                        "01",
+                                        sep="-")
+NOAA.data.with.damages$BaseMonth<-ymd(NOAA.data.with.damages$BaseMonth)
+#Merge on BaseMonth
+NOAA.data.with.damages<-merge(NOAA.data.with.damages,Inflation,by="BaseMonth")
+head(NOAA.data.with.damages)
+```
 For the purpose of keeping formatting consistency, I am changing all `EVTYPE` to uppercase and removing all extra and un-necessary spaces.
 ```{r General.Cleaning.Data}
 #Change all casing to upper
@@ -37,7 +78,6 @@ NOAA.data.with.damages$EVTYPE<- toupper( as.character(NOAA.data.with.damages$EVT
 NOAA.data.with.damages$EVTYPE<-sub("^(\\s)+","",NOAA.data.with.damages$EVTYPE)
 #Remove extra spaces from EVTYPE
 NOAA.data.with.damages$EVTYPE<-gsub('[[:space:]]+',' ',NOAA.data.with.damages$EVTYPE)
-
 ```
 While reviewing the data, I noticed there were many naming inconsistencies and misspellings of the `EVTYPE`. Therefore, I corrected all data to have the same name conventions or spellings.
 ```{r Renaming.Data}
@@ -318,10 +358,10 @@ NOAA.data.categorized$CROPDMGEXPVAL<-map_column[NOAA.data.categorized$CROPDMGEXP
 After adding the column for the exponential value, I calculated the cost for property and crop damages.
 ```{r Overall.Dmg.Cost,cache=TRUE}
 #Add column for Property Damage Cost
-NOAA.data.categorized$PROPDMGCOST<-NOAA.data.categorized$PROPDMG*NOAA.data.categorized$PROPDMGEXPVAL
+NOAA.data.categorized$PROPDMGCOST<-ifelse(NOAA.data.categorized$PROPDMG==0,0,NOAA.data.categorized$PROPDMG*NOAA.data.categorized$PROPDMGEXPVAL*NOAA.data.categorized$CPIAUCSL)
 
 #Add column for Crop Damage Cost
-NOAA.data.categorized$CROPDMGCOST<-NOAA.data.categorized$CROPDMG*NOAA.data.categorized$CROPDMGEXPVAL
+NOAA.data.categorized$CROPDMGCOST<-ifelse(NOAA.data.categorized$CROPDMG==0,0,NOAA.data.categorized$CROPDMG*NOAA.data.categorized$CROPDMGEXPVAL*NOAA.data.categorized$CPIAUCSL)
 ```
 After grouping all the data, I decided to build a overall summary of the total property and crop damages per group.
 ```{r Economic.Summary,cache=TRUE}

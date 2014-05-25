@@ -38,6 +38,65 @@ NOAA.data.with.damages <- subset(NOAA.data.keeps, NOAA.data.keeps$FATALITIES >
     0)
 ```
 
+Since the data is collected since 1950 and not adjusted for inflation, I am going to go ahead add a column for adjusting damage costs later on. We need to account for inflation because $25,000 in 1950 would be equivalent to ~$233,000 in 2011.
+
+```r
+## Quantitative Financial Model package for inflation
+if ("quantmod" %in% rownames(installed.packages()) == FALSE) {
+    install.packages.("quantmod")
+}
+library(quantmod)
+
+# Easy date conversion package
+if ("lubridate" %in% rownames(installed.packages()) == FALSE) {
+    install.packages("lubridate")
+}
+library(lubridate)
+
+# Retrieve Inflation Table
+options(getSymbols.warning4.0 = FALSE)
+invisible(getSymbols("CPIAUCSL", src = "FRED"))
+# Avg Inflation yearly
+avg.cpi <- apply.yearly(CPIAUCSL, mean)
+
+# Using 2011 as base year
+adjInflationPercent <- as.numeric(avg.cpi["2011"])/avg.cpi
+Inflation <- as.data.frame(adjInflationPercent)
+
+# Add column based off row.names
+date <- seq(ymd("1947-12-01"), ymd("2014-12-01"), by = "years")
+Inflation$BaseMonth <- date
+
+# Convert BGN_DATE to Date
+NOAA.data.with.damages$BGN_DATE <- as.character(NOAA.data.with.damages$BGN_DATE)
+NOAA.data.with.damages$BGN_DATE <- mdy_hms(NOAA.data.with.damages$BGN_DATE)
+# Add another column to define base month since inflation is only for first
+# day of month
+NOAA.data.with.damages$BaseMonth <- paste(year(NOAA.data.with.damages$BGN_DATE), 
+    "12", "01", sep = "-")
+NOAA.data.with.damages$BaseMonth <- ymd(NOAA.data.with.damages$BaseMonth)
+# Merge on BaseMonth
+NOAA.data.with.damages <- merge(NOAA.data.with.damages, Inflation, by = "BaseMonth")
+head(NOAA.data.with.damages)
+```
+
+```
+##    BaseMonth   BGN_DATE COUNTYNAME STATE  EVTYPE FATALITIES INJURIES
+## 1 1950-12-01 1950-04-18     MOBILE    AL TORNADO          0       15
+## 2 1950-12-01 1950-04-18    BALDWIN    AL TORNADO          0        0
+## 3 1950-12-01 1950-06-25       RUSK    WI TORNADO          0        0
+## 4 1950-12-01 1950-06-25      PRICE    WI TORNADO          0        0
+## 5 1950-12-01 1950-06-25      CLARK    WI TORNADO          1        0
+## 6 1950-12-01 1950-06-25     ONEIDA    WI TORNADO          2       12
+##   PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP REMARKS CPIAUCSL
+## 1    25.0          K       0                       9.348
+## 2     2.5          K       0                       9.348
+## 3    25.0          K       0                       9.348
+## 4   250.0          K       0                       9.348
+## 5    25.0          K       0                       9.348
+## 6   250.0          K       0                       9.348
+```
+
 For the purpose of keeping formatting consistency, I am changing all `EVTYPE` to uppercase and removing all extra and un-necessary spaces.
 
 ```r
@@ -413,10 +472,14 @@ After adding the column for the exponential value, I calculated the cost for pro
 
 ```r
 # Add column for Property Damage Cost
-NOAA.data.categorized$PROPDMGCOST <- NOAA.data.categorized$PROPDMG * NOAA.data.categorized$PROPDMGEXPVAL
+NOAA.data.categorized$PROPDMGCOST <- ifelse(NOAA.data.categorized$PROPDMG == 
+    0, 0, NOAA.data.categorized$PROPDMG * NOAA.data.categorized$PROPDMGEXPVAL * 
+    NOAA.data.categorized$CPIAUCSL)
 
 # Add column for Crop Damage Cost
-NOAA.data.categorized$CROPDMGCOST <- NOAA.data.categorized$CROPDMG * NOAA.data.categorized$CROPDMGEXPVAL
+NOAA.data.categorized$CROPDMGCOST <- ifelse(NOAA.data.categorized$CROPDMG == 
+    0, 0, NOAA.data.categorized$CROPDMG * NOAA.data.categorized$CROPDMGEXPVAL * 
+    NOAA.data.categorized$CPIAUCSL)
 ```
 
 After grouping all the data, I decided to build a overall summary of the total property and crop damages per group.
