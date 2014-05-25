@@ -181,11 +181,13 @@ hljs.initHighlightingOnLoad();
 <body>
 <h1>Title: Briefly Summarizes data analysis</h1>
 
-<p>Synopsis: At most 10 sentences.  </p>
+<h2>Synopsis</h2>
+
+<p>-At most 10 sentences.  </p>
 
 <h2>Data Retrieval</h2>
 
-<p>Data</p>
+<p>Data retrieval and store raw CSV</p>
 
 <pre><code class="r"># Download File and Save Date Downloaded
 NOAA.data.file &lt;- download.file(&quot;https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2&quot;, 
@@ -205,7 +207,7 @@ unlink(&quot;StormData.csv.bz2&quot;)
 
 <pre><code class="r"># Subsetting the Data Frame to only include columns relevant for analysis
 keeps &lt;- c(&quot;COUNTY&quot;, &quot;COUNTYNAME&quot;, &quot;STATE&quot;, &quot;EVTYPE&quot;, &quot;FATALITIES&quot;, &quot;INJURIES&quot;, 
-    &quot;PROPDMG&quot;, &quot;PROPDMGEXP&quot;, &quot;CROPDMG&quot;, &quot;CROPDMGEXP&quot;)
+    &quot;PROPDMG&quot;, &quot;PROPDMGEXP&quot;, &quot;CROPDMG&quot;, &quot;CROPDMGEXP&quot;, &quot;REMARKS&quot;)
 NOAA.data.keeps &lt;- NOAA.data[, keeps]
 </code></pre>
 
@@ -216,7 +218,251 @@ NOAA.data.keeps &lt;- NOAA.data[, keeps]
     0)
 </code></pre>
 
+<p>-General cleaning</p>
+
+<pre><code class="r"># Change all casing to upper
+NOAA.data.with.damages$EVTYPE &lt;- toupper(as.character(NOAA.data.with.damages$EVTYPE))
+# Remove spaces from the front of EVTYPE
+NOAA.data.with.damages$EVTYPE &lt;- sub(&quot;^(\\s)+&quot;, &quot;&quot;, NOAA.data.with.damages$EVTYPE)
+# Remove extra spaces from EVTYPE
+NOAA.data.with.damages$EVTYPE &lt;- gsub(&quot;[[:space:]]+&quot;, &quot; &quot;, NOAA.data.with.damages$EVTYPE)
+</code></pre>
+
+<p>-Renaming data so that naming style is the same</p>
+
+<pre><code class="r"># Renaming various mispellings of THUNDERSTORM
+NOAA.data.with.damages$EVTYPE &lt;- sub(&quot;(TSTM)|(THUDERSTORM)|(TUNDERSTORM)|(THUNDERSTROM)|(THUNDERTORM)|(THUNERSTORM)|(THUNDEERSTORM)|(THUNDERESTORM)&quot;, 
+    &quot;THUNDERSTORM&quot;, NOAA.data.with.damages$EVTYPE)
+# Renaming TORNDAO as TORNADO
+NOAA.data.with.damages$EVTYPE &lt;- sub(&quot;TORNDAO&quot;, &quot;TORNADO&quot;, NOAA.data.with.damages$EVTYPE)
+# Renaming Avalance to Avalanche
+NOAA.data.with.damages$EVTYPE &lt;- sub(&quot;AVALANCE&quot;, &quot;AVALANCHE&quot;, NOAA.data.with.damages$EVTYPE)
+# Renaming MIRCO to MICRO
+NOAA.data.with.damages$EVTYPE &lt;- sub(&quot;MIRCO&quot;, &quot;MICRO&quot;, NOAA.data.with.damages$EVTYPE)
+# Renaming CSTL to COASTAL
+NOAA.data.with.damages$EVTYPE &lt;- sub(&quot;CSTL&quot;, &quot;COASTAL&quot;, NOAA.data.with.damages$EVTYPE)
+# Renaming WINDCHILL to WIND CHILL
+NOAA.data.with.damages$EVTYPE &lt;- sub(&quot;WINDCHILL&quot;, &quot;WINDCHILL&quot;, NOAA.data.with.damages$EVTYPE)
+# Renaming various misordering of FLASH FLOOD
+NOAA.data.with.damages$EVTYPE &lt;- sub(&quot;(FLOOD FLASH)|(FLOOD\\/FLASH)&quot;, &quot;FLASH FLOOD&quot;, 
+    NOAA.data.with.damages$EVTYPE)
+# Renaming FLD to FLOOD
+NOAA.data.with.damages$EVTYPE &lt;- sub(&quot;FLD&quot;, &quot;FLOOD&quot;, NOAA.data.with.damages$EVTYPE)
+# Renaming LIGHTING to LIGHTNING
+NOAA.data.with.damages$EVTYPE &lt;- sub(&quot;LIGHTING&quot;, &quot;LIGHTNING&quot;, NOAA.data.with.damages$EVTYPE)
+# Renaming FLOES to FLOWS
+NOAA.data.with.damages$EVTYPE &lt;- sub(&quot;FLOES&quot;, &quot;FLOWS&quot;, NOAA.data.with.damages$EVTYPE)
+# Renaming Non-Thunderstorm Wind to Wind
+NOAA.data.with.damages$EVTYPE &lt;- sub(&quot;(NON-THUNDERSTORM)|(NON THUNDERSTORM)&quot;, 
+    &quot;&quot;, NOAA.data.with.damages$EVTYPE)
+</code></pre>
+
+<p>-Create column to group events into many of the categories listed in FAQ</p>
+
+<pre><code class="r"># Create Subset for Tide or Storm Surge Storm Events
+NOAA.data.tides &lt;- NOAA.data.with.damages[grepl(&quot;(tide)|(surge)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.tides$General.Storm.Event &lt;- &quot;Storm Surge/Tide&quot;
+
+# Create Subset for Avalanche Storm Events
+NOAA.data.avalanche &lt;- NOAA.data.with.damages[grepl(&quot;avalanche&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.avalanche$General.Storm.Event &lt;- &quot;Avalanche&quot;
+
+# Create Subset for Blizzard Storm Events
+NOAA.data.blizzard &lt;- NOAA.data.with.damages[grepl(&quot;blizzard&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.blizzard$General.Storm.Event &lt;- &quot;Blizzard&quot;
+
+# Create Subset for Coastal Storm Events
+NOAA.data.coastal &lt;- NOAA.data.with.damages[grepl(&quot;(coastal)|(beach) &quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.coastal$General.Storm.Event &lt;- &quot;Coastal&quot;
+
+# Create Subset for Cold or Wind Chill Storm Events
+NOAA.data.cold.windchill &lt;- NOAA.data.with.damages[grepl(&quot;(cold)|(wind chill)|(hypothermia)|(low temperature)&quot;, 
+    NOAA.data.with.damages$EVTYPE, ignore.case = TRUE), ]
+NOAA.data.cold.windchill$General.Storm.Event &lt;- &quot;Cold/Wind Chill&quot;
+
+# Create Subset for Debris Flow Storm Events
+NOAA.data.debrisflow &lt;- NOAA.data.with.damages[grepl(&quot;(slide)|(flows)|(slump)&quot;, 
+    NOAA.data.with.damages$EVTYPE, ignore.case = TRUE), ]
+NOAA.data.debrisflow$General.Storm.Event &lt;- &quot;Debris Flow&quot;
+
+# Create Subset for Dense Fog Storm Events
+NOAA.data.densefogsmoke &lt;- NOAA.data.with.damages[grepl(&quot;(fog)|(smoke)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.densefogsmoke$General.Storm.Event &lt;- &quot;Dense Fog or Freezing Fog or Dense Smoke&quot;
+
+# Create Subset for Drought Storm Events
+NOAA.data.drought &lt;- NOAA.data.with.damages[grepl(&quot;(drought)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.drought$General.Storm.Event &lt;- &quot;Drought&quot;
+
+# Create Subset for Dust Storm Events
+NOAA.data.duststorm &lt;- NOAA.data.with.damages[grepl(&quot;(dust devil)|(dust storm)|(dust)&quot;, 
+    NOAA.data.with.damages$EVTYPE, ignore.case = TRUE), ]
+NOAA.data.duststorm$General.Storm.Event &lt;- &quot;Dust Devil or Dust Storm&quot;
+
+# Create Subset for Heat Storm Events
+NOAA.data.heat &lt;- NOAA.data.with.damages[grepl(&quot;(heat)|(hyperthermia)|(warm)&quot;, 
+    NOAA.data.with.damages$EVTYPE, ignore.case = TRUE), ]
+NOAA.data.heat$General.Storm.Event &lt;- &quot;Heat&quot;
+
+# Create Subset for Flood Storm Events
+NOAA.data.flood &lt;- NOAA.data.with.damages[grepl(&quot;(flood)|(high water)|(rapidly rising water)&quot;, 
+    NOAA.data.with.damages$EVTYPE, ignore.case = TRUE), ]
+NOAA.data.flood$General.Storm.Event &lt;- &quot;Flash Flood or Flood&quot;
+
+# Create Subset for Frost/Freeze Storm Events
+NOAA.data.frost &lt;- NOAA.data.with.damages[grepl(&quot;(frost)|(freeze)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.frost$General.Storm.Event &lt;- &quot;Frost/Freeze&quot;
+
+# Create Subset for Funnel Cloud Storm Events
+NOAA.data.funnel &lt;- NOAA.data.with.damages[grepl(&quot;(funnel)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.funnel$General.Storm.Event &lt;- &quot;Funnel Cloud&quot;
+
+# Create Subset for Hail Storm Events
+NOAA.data.hail &lt;- NOAA.data.with.damages[grepl(&quot;(hail)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.hail$General.Storm.Event &lt;- &quot;Hail or Marine Hail&quot;
+
+# Create Subset for Thunderstorm Storm Events
+NOAA.data.thunderstorm &lt;- NOAA.data.with.damages[grepl(&quot;(thunderstorm)|(thundersnow)|(gustnado)|(apache)&quot;, 
+    NOAA.data.with.damages$EVTYPE, ignore.case = TRUE), ]
+NOAA.data.thunderstorm$General.Storm.Event &lt;- &quot;Thunderstorm Winds or Marine Thunderstorm Winds&quot;
+
+# Create Subset for Tornado Storm Events
+NOAA.data.tornado &lt;- NOAA.data.with.damages[grepl(&quot;(tornado)|(landspout)|(waterspout)&quot;, 
+    NOAA.data.with.damages$EVTYPE, ignore.case = TRUE), ]
+NOAA.data.tornado$General.Storm.Event &lt;- &quot;Tornado&quot;
+
+# Create Subset for Wind Storm Events
+NOAA.data.wind &lt;- NOAA.data.with.damages[grepl(&quot;(wind)|(microburst)|(downburst)|(whirlwind)|(turbulence)|(marine mishap)&quot;, 
+    NOAA.data.with.damages$EVTYPE, ignore.case = TRUE), ]
+NOAA.data.wind &lt;- rbind(NOAA.data.wind, {
+    subset(NOAA.data.with.damages, NOAA.data.with.damages$EVTYPE == &quot;HIGH&quot;)
+})
+NOAA.data.wind$General.Storm.Event &lt;- &quot;Wind&quot;
+
+# Create Subset for Rain Storm Events
+NOAA.data.rain &lt;- NOAA.data.with.damages[grepl(&quot;(rain)|(shower)|(wet)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.rain$General.Storm.Event &lt;- &quot;Rain&quot;
+
+# Create Subset for Snow Storm Events
+NOAA.data.snow &lt;- NOAA.data.with.damages[grepl(&quot;(snow)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.snow$General.Storm.Event &lt;- &quot;Snow&quot;
+
+# Create Subset for Surf Storm Events
+NOAA.data.surf &lt;- NOAA.data.with.damages[grepl(&quot;(surf)|(swells)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.surf$General.Storm.Event &lt;- &quot;Surf&quot;
+
+# Create Subset for Hurricane(Typhoon) Storm Events
+NOAA.data.hurricane &lt;- NOAA.data.with.damages[grepl(&quot;(hurricane)|(typhoon)&quot;, 
+    NOAA.data.with.damages$EVTYPE, ignore.case = TRUE), ]
+NOAA.data.hurricane$General.Storm.Event &lt;- &quot;Hurricane(Typhoon)&quot;
+
+# Create Subset for Lightning Storm Events
+NOAA.data.lightning &lt;- NOAA.data.with.damages[grepl(&quot;(lightning)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.lightning$General.Storm.Event &lt;- &quot;Lightning&quot;
+
+# Create Subset for Ice Storm Events
+NOAA.data.ice &lt;- NOAA.data.with.damages[grepl(&quot;(ice)|(icy)|(glaze)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.ice$General.Storm.Event &lt;- &quot;Ice&quot;
+
+# Create Subset for Tropical Depression Storm Events
+NOAA.data.tropicaldepression &lt;- NOAA.data.with.damages[grepl(&quot;(tropical depression)&quot;, 
+    NOAA.data.with.damages$EVTYPE, ignore.case = TRUE), ]
+NOAA.data.tropicaldepression$General.Storm.Event &lt;- &quot;Tropical Depression&quot;
+
+# Create Subset for Tropical Storm Events
+NOAA.data.tropicalstorm &lt;- NOAA.data.with.damages[grepl(&quot;(tropical storm)&quot;, 
+    NOAA.data.with.damages$EVTYPE, ignore.case = TRUE), ]
+NOAA.data.tropicalstorm$General.Storm.Event &lt;- &quot;Tropical Storm&quot;
+
+# Create Subset for Winter Storm/Weather Storm Events
+NOAA.data.winter &lt;- NOAA.data.with.damages[grepl(&quot;(winter storm)|(winter weather)|(wintry))&quot;, 
+    NOAA.data.with.damages$EVTYPE, ignore.case = TRUE), ]
+NOAA.data.winter$General.Storm.Event &lt;- &quot;Winter Storm/Weather&quot;
+
+# Create Subset for Different Fire Storm Events
+NOAA.data.fire &lt;- NOAA.data.with.damages[grepl(&quot;(fire)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.fire$General.Storm.Event &lt;- &quot;Fire&quot;
+
+# Create Subset for Seiche Storm Events
+NOAA.data.seiche &lt;- NOAA.data.with.damages[grepl(&quot;(seiche)|(wave)|(high seas)|(heavy seas)|(rough seas)|(marine accident)&quot;, 
+    NOAA.data.with.damages$EVTYPE, ignore.case = TRUE), ]
+NOAA.data.seiche$General.Storm.Event &lt;- &quot;Seiche&quot;
+
+# Create Subset for Volcanic Ash Storm Events
+NOAA.data.volcanicash &lt;- NOAA.data.with.damages[grepl(&quot;(volcanic)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.volcanicash$General.Storm.Event &lt;- &quot;Volcanic Ash&quot;
+
+# Create Subset for Mix Precipitation Storm Events
+NOAA.data.mixprecip &lt;- NOAA.data.with.damages[grepl(&quot;(freezing drizzle)|(freezing spray)|(mix)|(precipitation)|(sleet)&quot;, 
+    NOAA.data.with.damages$EVTYPE, ignore.case = TRUE), ]
+NOAA.data.mixprecip$General.Storm.Event &lt;- &quot;Mixed Precipitation&quot;
+
+# Create Subset for RIP Current Storm Events
+NOAA.data.ripcurrent &lt;- NOAA.data.with.damages[grepl(&quot;(rip current)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.ripcurrent$General.Storm.Event &lt;- &quot;RIP Currents&quot;
+
+# Create Subset for Tsunami Storm Events
+NOAA.data.tsunami &lt;- NOAA.data.with.damages[grepl(&quot;(tsunami)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.tsunami$General.Storm.Event &lt;- &quot;Tsunami&quot;
+
+# Create Subset for Other Storm Events
+NOAA.data.other &lt;- NOAA.data.with.damages[grepl(&quot;(other)|(dam)|(drown)&quot;, NOAA.data.with.damages$EVTYPE, 
+    ignore.case = TRUE), ]
+NOAA.data.dust &lt;- NOAA.data.other[grepl(&quot;dust&quot;, NOAA.data.other$REMARKS, ignore.case = TRUE), 
+    ]
+NOAA.data.dust$General.Storm.Event &lt;- &quot;Dust Devil or Dust Storm&quot;
+NOAA.data.rainother &lt;- NOAA.data.other[grepl(&quot;rain&quot;, NOAA.data.other$REMARKS, 
+    ignore.case = TRUE), ]
+NOAA.data.rainother$General.Storm.Event &lt;- &quot;Rain&quot;
+NOAA.data.windother &lt;- NOAA.data.other[grepl(&quot;wind&quot;, NOAA.data.other$REMARKS, 
+    ignore.case = TRUE), ]
+NOAA.data.windother$General.Storm.Event &lt;- &quot;Wind&quot;
+NOAA.data.other$General.Storm.Event &lt;- &quot;Other&quot;
+
+# Combine all the subsets into one overall dataframe
+NOAA.data.categorized &lt;- rbind(NOAA.data.tides, NOAA.data.avalanche, NOAA.data.blizzard, 
+    NOAA.data.coastal, NOAA.data.cold.windchill, NOAA.data.debrisflow, NOAA.data.densefogsmoke, 
+    NOAA.data.drought, NOAA.data.duststorm, NOAA.data.dust, NOAA.data.heat, 
+    NOAA.data.flood, NOAA.data.frost, NOAA.data.funnel, NOAA.data.hail, NOAA.data.thunderstorm, 
+    NOAA.data.tornado, NOAA.data.wind, NOAA.data.rain, NOAA.data.rainother, 
+    NOAA.data.snow, NOAA.data.surf, NOAA.data.hurricane, NOAA.data.lightning, 
+    NOAA.data.ice, NOAA.data.tropicaldepression, NOAA.data.tropicalstorm, NOAA.data.winter, 
+    NOAA.data.fire, NOAA.data.seiche, NOAA.data.volcanicash, NOAA.data.mixprecip, 
+    NOAA.data.ripcurrent, NOAA.data.tsunami, NOAA.data.windother)
+</code></pre>
+
 <h2>Results</h2>
+
+<pre><code class="r">NOAA.data.summary &lt;- ddply(NOAA.data.categorized, ~General.Storm.Event, summarize, 
+    avgFatalities = mean(Fatalities, na.rm = TRUE), avgInjuries = mean(Injuries, 
+        na.rm = TRUE))
+</code></pre>
+
+<pre><code>## Error: could not find function &quot;ddply&quot;
+</code></pre>
+
+<pre><code class="r">head(NOAA.data.summary)
+</code></pre>
+
+<pre><code>## Error: object &#39;NOAA.data.summary&#39; not found
+</code></pre>
 
 <p>*No more than three figures
 *Must contain at least one figure with a plot</p>
@@ -229,6 +475,24 @@ NOAA.data.keeps &lt;- NOAA.data[, keeps]
 </ol>
 
 <p>Consider writing your report as if it were to be read by a government or municipal manager who might be responsible for preparing for severe weather events and will need to prioritize resources for different types of events. However, there is no need to make any specific recommendations in your report.</p>
+
+<h2>Grading Rubric</h2>
+
+<ol>
+<li>Has either a (1) valid RPubs URL pointing to a data analysis document for this assignment been submitted; or (2) a complete PDF file presenting the data analysis been uploaded?</li>
+<li>Is the document written in English?</li>
+<li>Does the document have a title that briefly summarizes the data analysis?</li>
+<li>Does the document have a synopsis that describes and summarizes the data analysis in less than 10 sentences?</li>
+<li>Is there a section titled &ldquo;Data Processing&rdquo; that describes how the data were loaded into R and processed for analysis?</li>
+<li>Is there a section titled &ldquo;Results&rdquo; where the main results are presented?</li>
+<li>Is there at least one figure in the document that contains a plot?</li>
+<li>Are there at most 3 figures in this document?</li>
+<li>Does the analysis address the question of which types of events are most harmful to population health?</li>
+<li>Does the analysis address the question of which types of events have the greatest economic consequences?</li>
+<li>Do all the results of the analysis (i.e. figures, tables, numerical summaries) appear to be reproducible?</li>
+<li>Do the figure(s) have descriptive captions (i.e. there is a description near the figure of what is happening in the figure)?</li>
+<li>Does the analysis include description and justification for any data transformations?</li>
+</ol>
 
 </body>
 
