@@ -1,8 +1,8 @@
-Title: Briefly Summarizes data analysis
+Storm Event Effects on Population and Economic Health
 ========================================================
 
 ## Synopsis
--At most 10 sentences.  
+In this report, I aim to describe which storm events are the most damaging to population and economic health. My hypothesis is that tornadoes cause the most damages to both population and economic health. To investigate my hypothesis, I obtained data from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including estimates of any fatalities, injuries, and property damages.From this data, we found that tornadoes are the most damaging to population health and flooding caused the most economic consequences.  
 
 ## Data Retrieval
 Data retrieval and store raw CSV
@@ -18,13 +18,13 @@ close(open.connection)
 unlink("StormData.csv.bz2")
 ```
 ## Data Processing
--Removing un-necessary columns for data analysis questions
+For the start of my data processing, I want to only keep the columns that pertain to population health and economic damages. Therefore, I want to keep the following columns in my dataframe: "COUNTY","COUNTYNAME","STATE","EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP","REMARKS".
 ```{r Data.Resizing,cache=TRUE}
 #Subsetting the Data Frame to only include columns relevant for analysis
 keeps <-c("COUNTY","COUNTYNAME","STATE","EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP","REMARKS")
 NOAA.data.keeps <-NOAA.data[,keeps]
 ```
--Focus on only data with damages to population or economic health
+Next, I want to keep only data that show fatalities, injuries, property damage, or crop damage.
 ```{r Data.Damages}
 NOAA.data.with.damages <- subset(NOAA.data.keeps,
                                  NOAA.data.keeps$FATALITIES > 0 | NOAA.data.keeps$INJURIES > 0 | NOAA.data.keeps$PROPDMG > 0 | NOAA.data.keeps$CROPDMG >0) 
@@ -275,34 +275,74 @@ NOAA.data.categorized <-rbind(NOAA.data.tides,NOAA.data.avalanche,NOAA.data.bliz
 ```
  
 ## Results
-```{r Health.Summary}
-  NOAA.data.summary <- ddply(NOAA.data.categorized,
+### Population Health
+```{r Health.Summary,cache=TRUE}
+library(plyr)
+NOAA.data.health.summary <- ddply(NOAA.data.categorized,
                               ~General.Storm.Event,
                               summarize,
-                              avgFatalities=mean(Fatalities,na.rm=TRUE),avgInjuries=mean(Injuries,na.rm=TRUE))
-head(NOAA.data.summary)
+                              totalFatalities=sum(FATALITIES,na.rm=TRUE),totalInjuries=sum(INJURIES,na.rm=TRUE))
+NOAA.data.health.summary<-NOAA.data.health.summary[order(-NOAA.data.health.summary$totalFatalities,-NOAA.data.health.summary$totalInjuries),]
+
+head(NOAA.data.health.summary)
 ```
-                              
-*No more than three figures
-*Must contain at least one figure with a plot
+-Plot top 10
+```{r Top.Ten.Health}
+library(ggplot2)
+library(reshape2)
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+print({
+  standard.plot <- ggplot(melt(NOAA.data.health.summary[1:10,],id.vars="General.Storm.Event",measure.vars=c("totalInjuries","totalFatalities")),aes(General.Storm.Event,value,fill=variable))
+  plot.level.one <- standard.plot+geom_bar(stat="identity")+scale_fill_manual(values=cbPalette)
+  plot.level.two <- plot.level.one+labs(title="Population Health Effects of Storm Events")
+  plot.level.three <- plot.level.two + labs(x="Top Ten General Storm Events",y="Total Occurences")
+  plot.level.three+theme(axis.text.x=element_text(angle=90,hjust=1))
+  })
+```
+### Economic Consequences
+-Add columns for value of Damage Exp
+```{r Convert.Damage.Exp,cache=TRUE}
+#Add column for Property Damage True Cost and True Exponent Value
+levels(NOAA.data.with.damages$PROPDMGEXP)
+map_column<-rep(c(1,1,1,1,1e0,1e1,1e2,1e3,1e4,1e5,1e6,1e7,1e8,1e9,1e2,1e2,1e3,1e6,1e6))
+NOAA.data.categorized$PROPDMGEXPVAL<-map_column[NOAA.data.categorized$PROPDMGEXP]
 
-## Questions that must be addressed
-1. Across the United States, which types of events (as indicated in the `EVTYPE` variable) are most harmful with respect to population health?
-1. Across the United States, which types of events have the greatest economic consequences?
+#Add column for Crop Damage True Cost and True Exponent Value
+levels(NOAA.data.with.damages$CROPDMGEXP)
+map_column<-rep(c(1,1,1e0,1e2,1e9,1e3,1e3,1e6,1e6))
+NOAA.data.categorized$CROPDMGEXPVAL<-map_column[NOAA.data.categorized$CROPDMGEXP]
+```
+-Add columns for Overall Costs
+```{r Overall.Dmg.Cost,cache=TRUE}
+#Add column for Property Damage Cost
+NOAA.data.categorized$PROPDMGCOST<-NOAA.data.categorized$PROPDMG*NOAA.data.categorized$PROPDMGEXPVAL
 
-Consider writing your report as if it were to be read by a government or municipal manager who might be responsible for preparing for severe weather events and will need to prioritize resources for different types of events. However, there is no need to make any specific recommendations in your report.
+#Add column for Crop Damage Cost
+NOAA.data.categorized$CROPDMGCOST<-NOAA.data.categorized$CROPDMG*NOAA.data.categorized$CROPDMGEXPVAL
 
-## Grading Rubric
-1. Has either a (1) valid RPubs URL pointing to a data analysis document for this assignment been submitted; or (2) a complete PDF file presenting the data analysis been uploaded?
-1. Is the document written in English?
-1. Does the document have a title that briefly summarizes the data analysis?
-1. Does the document have a synopsis that describes and summarizes the data analysis in less than 10 sentences?
-1. Is there a section titled "Data Processing" that describes how the data were loaded into R and processed for analysis?
-1. Is there a section titled "Results" where the main results are presented?
-1. Is there at least one figure in the document that contains a plot?
-1. Are there at most 3 figures in this document?
-1. Does the analysis address the question of which types of events are most harmful to population health?
-1. Does the analysis address the question of which types of events have the greatest economic consequences?
-1. Do all the results of the analysis (i.e. figures, tables, numerical summaries) appear to be reproducible?
-1. Do the figure(s) have descriptive captions (i.e. there is a description near the figure of what is happening in the figure)?
-1. Does the analysis include description and justification for any data transformations?
+#Add column for Overall Damages Cost
+NOAA.data.categorized$OVERALLDMGCOST<-NOAA.data.categorized$PROPDMGCOST+NOAA.data.categorized$CROPDMGCOST
+```
+
+-Summarize Data
+```{r Economic.Summary,cache=TRUE}
+library(plyr)
+NOAA.data.economic.summary <- ddply(NOAA.data.categorized,
+                              ~General.Storm.Event,
+                              summarize,
+                              totalOverallDmg=sum(OVERALLDMGCOST,na.rm=TRUE))
+NOAA.data.economic.summary<-NOAA.data.economic.summary[order(-NOAA.data.economic.summary$totalOverallDmg),]
+
+head(NOAA.data.economic.summary)
+```
+-Plot top 10
+```{r Top.Ten.Economic}
+library(ggplot2)
+print({
+  standard.plot <- ggplot(NOAA.data.economic.summary[1:10,],aes(General.Storm.Event,totalOverallDmg))
+  plot.level.one <- standard.plot+geom_bar(stat="identity")
+  plot.level.two <- plot.level.one+labs(title="Economic Health Effects of Storm Events")
+  plot.level.three <- plot.level.two + labs(x="Top Ten General Storm Events",y="Total Cost of Damages")
+  plot.level.three+theme(axis.text.x=element_text(angle=90,hjust=1))
+  })
+```

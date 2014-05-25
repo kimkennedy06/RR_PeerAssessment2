@@ -273,26 +273,140 @@ NOAA.data.categorized <- rbind(NOAA.data.tides, NOAA.data.avalanche, NOAA.data.b
 
  
 ## Results
+### Population Health
 
 ```r
-NOAA.data.summary <- ddply(NOAA.data.categorized, ~General.Storm.Event, summarize, 
-    avgFatalities = mean(Fatalities, na.rm = TRUE), avgInjuries = mean(Injuries, 
+library(plyr)
+NOAA.data.health.summary <- ddply(NOAA.data.categorized, ~General.Storm.Event, 
+    summarize, totalFatalities = sum(FATALITIES, na.rm = TRUE), totalInjuries = sum(INJURIES, 
         na.rm = TRUE))
+NOAA.data.health.summary <- NOAA.data.health.summary[order(-NOAA.data.health.summary$totalFatalities, 
+    -NOAA.data.health.summary$totalInjuries), ]
+
+head(NOAA.data.health.summary)
 ```
 
 ```
-## Error: could not find function "ddply"
+##                                General.Storm.Event totalFatalities
+## 26                                         Tornado            5664
+## 14                                            Heat            3179
+## 10                            Flash Flood or Flood            1557
+## 31                                            Wind            1462
+## 17                                       Lightning             817
+## 25 Thunderstorm Winds or Marine Thunderstorm Winds             756
+##    totalInjuries
+## 26         91436
+## 14          9243
+## 10          8683
+## 31         11539
+## 17          5232
+## 25          9544
+```
+
+-Plot top 10
+
+```r
+library(ggplot2)
+library(reshape2)
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", 
+    "#D55E00", "#CC79A7")
+print({
+    standard.plot <- ggplot(melt(NOAA.data.health.summary[1:10, ], id.vars = "General.Storm.Event", 
+        measure.vars = c("totalInjuries", "totalFatalities")), aes(General.Storm.Event, 
+        value, fill = variable))
+    plot.level.one <- standard.plot + geom_bar(stat = "identity") + scale_fill_manual(values = cbPalette)
+    plot.level.two <- plot.level.one + labs(title = "Population Health Effects of Storm Events")
+    plot.level.three <- plot.level.two + labs(x = "General Storm Events", y = "Total Occurences")
+    plot.level.three + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+})
+```
+
+![plot of chunk Top.Ten.Health](figure/Top_Ten_Health.png) 
+
+### Economic Consequences
+-Add columns for value of Damage Exp
+
+```r
+# Add column for Property Damage True Cost and True Exponent Value
+levels(NOAA.data.with.damages$PROPDMGEXP)
+```
+
+```
+##  [1] ""  "-" "?" "+" "0" "1" "2" "3" "4" "5" "6" "7" "8" "B" "h" "H" "K"
+## [18] "m" "M"
 ```
 
 ```r
-head(NOAA.data.summary)
+map_column <- rep(c(1, 1, 1, 1, 1, 10, 100, 1000, 10000, 1e+05, 1e+06, 1e+07, 
+    1e+08, 1e+09, 100, 100, 1000, 1e+06, 1e+06))
+NOAA.data.categorized$PROPDMGEXPVAL <- map_column[NOAA.data.categorized$PROPDMGEXP]
+
+# Add column for Crop Damage True Cost and True Exponent Value
+levels(NOAA.data.with.damages$CROPDMGEXP)
 ```
 
 ```
-## Error: object 'NOAA.data.summary' not found
+## [1] ""  "?" "0" "2" "B" "k" "K" "m" "M"
 ```
 
-                              
+```r
+map_column <- rep(c(1, 1, 1, 100, 1e+09, 1000, 1000, 1e+06, 1e+06))
+NOAA.data.categorized$CROPDMGEXPVAL <- map_column[NOAA.data.categorized$CROPDMGEXP]
+```
+
+-Add columns for Overall Costs
+
+```r
+# Add column for Property Damage Cost
+NOAA.data.categorized$PROPDMGCOST <- NOAA.data.categorized$PROPDMG * NOAA.data.categorized$PROPDMGEXPVAL
+
+# Add column for Crop Damage Cost
+NOAA.data.categorized$CROPDMGCOST <- NOAA.data.categorized$CROPDMG * NOAA.data.categorized$CROPDMGEXPVAL
+
+# Add column for Overall Damages Cost
+NOAA.data.categorized$OVERALLDMGCOST <- NOAA.data.categorized$PROPDMGCOST + 
+    NOAA.data.categorized$CROPDMGCOST
+```
+
+
+-Summarize Data
+
+```r
+library(plyr)
+NOAA.data.economic.summary <- ddply(NOAA.data.categorized, ~General.Storm.Event, 
+    summarize, totalOverallDmg = sum(OVERALLDMGCOST, na.rm = TRUE))
+NOAA.data.economic.summary <- NOAA.data.economic.summary[order(-NOAA.data.economic.summary$totalOverallDmg), 
+    ]
+
+head(NOAA.data.economic.summary)
+```
+
+```
+##     General.Storm.Event totalOverallDmg
+## 10 Flash Flood or Flood       1.807e+11
+## 15   Hurricane(Typhoon)       9.087e+10
+## 26              Tornado       5.903e+10
+## 23     Storm Surge/Tide       4.798e+10
+## 13  Hail or Marine Hail       2.074e+10
+## 31                 Wind       2.012e+10
+```
+
+-Plot top 10
+
+```r
+library(ggplot2)
+print({
+    standard.plot <- ggplot(NOAA.data.economic.summary[1:10, ], aes(General.Storm.Event, 
+        totalOverallDmg))
+    plot.level.one <- standard.plot + geom_bar(stat = "identity")
+    plot.level.two <- plot.level.one + labs(title = "Economic Health Effects of Storm Events")
+    plot.level.three <- plot.level.two + labs(x = "General Storm Events", y = "Total Cost of Damages")
+    plot.level.three + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+})
+```
+
+![plot of chunk Top.Ten.Economic](figure/Top_Ten_Economic.png) 
+
 *No more than three figures
 *Must contain at least one figure with a plot
 
