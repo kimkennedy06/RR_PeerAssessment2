@@ -2,10 +2,10 @@ Storm Event Effects on Population and Economic Health
 ========================================================
 
 ## Synopsis
-In this report, I aim to describe which storm events are the most damaging to population and economic health. My hypothesis is that tornadoes cause the most damages to both population and economic health. To investigate my hypothesis, I obtained data from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including estimates of any fatalities, injuries, and property damages.From this data, we found that tornadoes are the most damaging to population health and flooding caused the most economic consequences.  
+In this report, I aim to describe which storm events are the most damaging to population and economic health. My hypothesis is that tornadoes cause the most damages to both population and economic health. To investigate my hypothesis, I obtained data from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including estimates of any fatalities, injuries, and property damages. From this data, we found that tornadoes are the most damaging to population health and flooding caused the most economic consequences.  
 
 ## Data Retrieval
-Data retrieval and store raw CSV
+From the [NOAA storm database](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2), I obtained the compressed data for all major storms and weather events in the US reported to NOAA from 1950 to 2011. Once the data was downloaded, I uncompressed the data and saved it as `NOAA.data`.
 ```{r Download.Store.Storm.Data,cache=TRUE}
 #Download File and Save Date Downloaded
 NOAA.data.file <- download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",destfile="StormData.csv.bz2",method="curl")
@@ -18,10 +18,10 @@ close(open.connection)
 unlink("StormData.csv.bz2")
 ```
 ## Data Processing
-For the start of my data processing, I want to only keep the columns that pertain to population health and economic damages. Therefore, I want to keep the following columns in my dataframe: "COUNTY","COUNTYNAME","STATE","EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP","REMARKS".
+For the start of my data processing, I want to only keep the columns that pertain to population health and economic damages. Therefore, I want to keep the following columns in my data frame: "BGN_DATE","COUNTYNAME","STATE","EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP","REMARKS".
 ```{r Data.Resizing,cache=TRUE}
 #Subsetting the Data Frame to only include columns relevant for analysis
-keeps <-c("COUNTY","COUNTYNAME","STATE","EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP","REMARKS")
+keeps <-c("BGN_DATE","COUNTYNAME","STATE","EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP","REMARKS")
 NOAA.data.keeps <-NOAA.data[,keeps]
 ```
 Next, I want to keep only data that show fatalities, injuries, property damage, or crop damage.
@@ -29,7 +29,7 @@ Next, I want to keep only data that show fatalities, injuries, property damage, 
 NOAA.data.with.damages <- subset(NOAA.data.keeps,
                                  NOAA.data.keeps$FATALITIES > 0 | NOAA.data.keeps$INJURIES > 0 | NOAA.data.keeps$PROPDMG > 0 | NOAA.data.keeps$CROPDMG >0) 
 ```
--General cleaning
+For the purpose of keeping formatting consistency, I am changing all `EVTYPE` to uppercase and removing all extra and un-necessary spaces.
 ```{r General.Cleaning.Data}
 #Change all casing to upper
 NOAA.data.with.damages$EVTYPE<- toupper( as.character(NOAA.data.with.damages$EVTYPE)) 
@@ -37,8 +37,9 @@ NOAA.data.with.damages$EVTYPE<- toupper( as.character(NOAA.data.with.damages$EVT
 NOAA.data.with.damages$EVTYPE<-sub("^(\\s)+","",NOAA.data.with.damages$EVTYPE)
 #Remove extra spaces from EVTYPE
 NOAA.data.with.damages$EVTYPE<-gsub('[[:space:]]+',' ',NOAA.data.with.damages$EVTYPE)
+
 ```
--Renaming data so that naming style is the same
+While reviewing the data, I noticed there were many naming inconsistencies and misspellings of the `EVTYPE`. Therefore, I corrected all data to have the same name conventions or spellings.
 ```{r Renaming.Data}
 #Renaming various mispellings of THUNDERSTORM
 NOAA.data.with.damages$EVTYPE<-sub("(TSTM)|(THUDERSTORM)|(TUNDERSTORM)|(THUNDERSTROM)|(THUNDERTORM)|(THUNERSTORM)|(THUNDEERSTORM)|(THUNDERESTORM)","THUNDERSTORM",NOAA.data.with.damages$EVTYPE)
@@ -63,7 +64,7 @@ NOAA.data.with.damages$EVTYPE<-sub("FLOES","FLOWS",NOAA.data.with.damages$EVTYPE
 #Renaming Non-Thunderstorm Wind to Wind 
 NOAA.data.with.damages$EVTYPE<-sub("(NON-THUNDERSTORM)|(NON THUNDERSTORM)","",NOAA.data.with.damages$EVTYPE)
 ```
--Create column to group events into many of the categories listed in FAQ
+Based off of the groups in the [FAQ](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf), I created groups using subsets on `EVTYPE` to have a more general set of events for better analysis. For a few of the events, I needed to look them up in [Wikipedia](https://www.wikipedia.org/) or review the `REMARKS` column in the data to better idea of which group the event would fall into. For example, `Apache County` was listed as an `EVTYPE` so I reviewed the `REMARKS` and found that the event was related to thunderstorm winds.Several events fell under multiple groups and I let those events be counted under each group. For example, `Thunderstorm Wind` can be listed with `Thunderstorm` and `Wind`. After sub-setting into groups, I combined the groups back together under `NOAA.data.categorized`.
 ```{r Group.Data,cache=TRUE}
 #Create Subset for Tide or Storm Surge Storm Events
 NOAA.data.tides <- NOAA.data.with.damages[grepl("(tide)|(surge)",
@@ -276,6 +277,7 @@ NOAA.data.categorized <-rbind(NOAA.data.tides,NOAA.data.avalanche,NOAA.data.bliz
  
 ## Results
 ### Population Health
+After grouping all the data, I decided to build a overall summary of the total fatalities and injuries per group.
 ```{r Health.Summary,cache=TRUE}
 library(plyr)
 NOAA.data.health.summary <- ddply(NOAA.data.categorized,
@@ -284,9 +286,9 @@ NOAA.data.health.summary <- ddply(NOAA.data.categorized,
                               totalFatalities=sum(FATALITIES,na.rm=TRUE),totalInjuries=sum(INJURIES,na.rm=TRUE))
 NOAA.data.health.summary<-NOAA.data.health.summary[order(-NOAA.data.health.summary$totalFatalities,-NOAA.data.health.summary$totalInjuries),]
 
-head(NOAA.data.health.summary)
+NOAA.data.health.summary
 ```
--Plot top 10
+From the above summary, I can see that we can really just focus on the top ten general storm events to know which storm event effects population health the most.Since after the top ten, the total fatalities drastically starts to decrease.
 ```{r Top.Ten.Health}
 library(ggplot2)
 library(reshape2)
@@ -299,8 +301,9 @@ print({
   plot.level.three+theme(axis.text.x=element_text(angle=90,hjust=1))
   })
 ```
+From the plot above, we can see that Tornado type events have the most devastating effect on population health.
 ### Economic Consequences
--Add columns for value of Damage Exp
+For economic consequences, I noticed I first needed to have numeric representation of the `*DMGEXP` in order to calculate the costs. Therefore, I added a column to the data frame that mapped the `*DMGEXP` to its corresponding exponential value.
 ```{r Convert.Damage.Exp,cache=TRUE}
 #Add column for Property Damage True Cost and True Exponent Value
 levels(NOAA.data.with.damages$PROPDMGEXP)
@@ -312,37 +315,36 @@ levels(NOAA.data.with.damages$CROPDMGEXP)
 map_column<-rep(c(1,1,1e0,1e2,1e9,1e3,1e3,1e6,1e6))
 NOAA.data.categorized$CROPDMGEXPVAL<-map_column[NOAA.data.categorized$CROPDMGEXP]
 ```
--Add columns for Overall Costs
+After adding the column for the exponential value, I calculated the cost for property and crop damages.
 ```{r Overall.Dmg.Cost,cache=TRUE}
 #Add column for Property Damage Cost
 NOAA.data.categorized$PROPDMGCOST<-NOAA.data.categorized$PROPDMG*NOAA.data.categorized$PROPDMGEXPVAL
 
 #Add column for Crop Damage Cost
 NOAA.data.categorized$CROPDMGCOST<-NOAA.data.categorized$CROPDMG*NOAA.data.categorized$CROPDMGEXPVAL
-
-#Add column for Overall Damages Cost
-NOAA.data.categorized$OVERALLDMGCOST<-NOAA.data.categorized$PROPDMGCOST+NOAA.data.categorized$CROPDMGCOST
 ```
-
--Summarize Data
+After grouping all the data, I decided to build a overall summary of the total property and crop damages per group.
 ```{r Economic.Summary,cache=TRUE}
 library(plyr)
 NOAA.data.economic.summary <- ddply(NOAA.data.categorized,
                               ~General.Storm.Event,
                               summarize,
-                              totalOverallDmg=sum(OVERALLDMGCOST,na.rm=TRUE))
-NOAA.data.economic.summary<-NOAA.data.economic.summary[order(-NOAA.data.economic.summary$totalOverallDmg),]
-
-head(NOAA.data.economic.summary)
+                              totalPropDmg=sum(PROPDMGCOST,na.rm=TRUE),
+                              totalCropDmg=sum(CROPDMGCOST,na.rm=TRUE))
+NOAA.data.economic.summary<-NOAA.data.economic.summary[order(-NOAA.data.economic.summary$totalPropDmg,-NOAA.data.economic.summary$totalCropDmg),]
+NOAA.data.economic.summary
 ```
--Plot top 10
+From the above summary, I can see that we can really just focus on the top ten general storm events to know which storm event causes the most economic consequences. Since after the top ten, the damage costs drastically starts to decrease.
 ```{r Top.Ten.Economic}
 library(ggplot2)
+library(reshape2)
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 print({
-  standard.plot <- ggplot(NOAA.data.economic.summary[1:10,],aes(General.Storm.Event,totalOverallDmg))
-  plot.level.one <- standard.plot+geom_bar(stat="identity")
+  standard.plot <- ggplot(melt(NOAA.data.economic.summary[1:10,],id.vars="General.Storm.Event",measure.vars=c("totalPropDmg","totalCropDmg")),aes(General.Storm.Event,value,fill=variable))
+  plot.level.one <- standard.plot+geom_bar(stat="identity")+scale_fill_manual(values=cbPalette)
   plot.level.two <- plot.level.one+labs(title="Economic Health Effects of Storm Events")
   plot.level.three <- plot.level.two + labs(x="Top Ten General Storm Events",y="Total Cost of Damages")
   plot.level.three+theme(axis.text.x=element_text(angle=90,hjust=1))
   })
 ```
+From the plot above, we can see that Flood type events has the most economic consequences.

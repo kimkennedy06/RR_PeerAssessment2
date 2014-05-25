@@ -6,3 +6,9 @@
 *.RData
 
 cache/__packages
+
+.RDataTmp
+
+.Rhistory
+
+StormData.csv.bz2
